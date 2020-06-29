@@ -78,11 +78,16 @@ func (monitor *monitoringInterface) StartMonitor(notification chan int) error {
 	notificationChannel = notification
 
 	log.Info("Starting the monitor")
-	_, _, _ = funcNotifyIPInterfaceChange(syscall.AF_UNSPEC,
+	retVal, _, _ := funcNotifyIPInterfaceChange(syscall.AF_UNSPEC,
 		syscall.NewCallback(callback),
 		uintptr(unsafe.Pointer(&(monitor))),
 		1,
 		uintptr(unsafe.Pointer(&(monitor.notificationHandle))))
+
+	// If there is any error while registering callback then retVal will not be 0. Therefore, we will return with an error.
+	if retVal != 0 {
+		return errors.Errorf("Error occured while calling Windows API : %s", syscall.Errno(retVal))
+	}
 
 	// Initial notification is sent immediately once the callback is registered.
 	// If the same is not received within a defined timeout then we assume an error and close the monitor
@@ -95,7 +100,9 @@ initialNotificationLoop:
 			}
 		case <-time.After(InitialNotificationTimeout):
 			log.Errorf("IPHelper : Initial notification not received within timeout. Closing the Monitor.")
-			monitor.Close()
+			if retErr := monitor.Close(); retErr != nil {
+				return errors.Wrapf(retErr, "Initial Notification not received as well!")
+			}
 			return errors.Errorf("IPHelper : Initial notification not received.")
 		}
 	}
@@ -133,16 +140,19 @@ func callback(callerContext, row, notificationType uintptr) uintptr {
 // Alternatively the notification callback would be cancelled when application exits
 func (monitor *monitoringInterface) Close() (err error) {
 	log.Info("IPHelper : Cancelling the interface change notification callback")
-	res := monitor.cancelNotifications()
-	if res != 0 {
-		return errors.Errorf("IPHelper : Error caused while deregistering from windows notification : %v", res)
+	if err := monitor.cancelNotifications(); err != nil {
+		return err
 	}
 	return nil
 }
 
 // This method is used to cancel the notification callback for any changes in the interfaces attached to the system
-func (monitor *monitoringInterface) cancelNotifications() int32 {
+// If the call is successful then res is 0. Otherwise we will return the corresponding error.
+func (monitor *monitoringInterface) cancelNotifications() error {
 	res, _, _ := funcCancelMibChangeNotify2(uintptr(monitor.notificationHandle))
-	result := int32(res)
-	return result
+
+	if res != 0 {
+		return errors.Errorf("IPHelper : Error caused while deregistering from windows notification : %s", syscall.Errno(res))
+	}
+	return nil
 }

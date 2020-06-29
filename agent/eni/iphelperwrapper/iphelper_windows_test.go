@@ -37,6 +37,12 @@ var (
 		return uintptr(0), uintptr(0), nil
 	}
 
+	// Dummy function which is representative of system call (NotifyIPInterfaceChange)
+	// Invokation of this function returns Windows error 87 (The parameter is incorrect.)
+	dummyFuncNotifyIPInterfaceChangeWithError = func(...uintptr) (uintptr, uintptr, error) {
+		return uintptr(87), uintptr(0), nil
+	}
+
 	// Dummy function which is representative of system call (CancelMibChangeNotify2)
 	dummyFuncCancelMibChangeNotify2 = func(...uintptr) (uintptr, uintptr, error) {
 		return uintptr(0), uintptr(0), nil
@@ -52,6 +58,19 @@ var (
 		InterfaceIndex: 9,
 	}
 )
+
+func TestStartMonitorWithErrorWhileCallingWindowsAPI(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	// Overriding the windows API call with a dummy call
+	funcNotifyIPInterfaceChange = dummyFuncNotifyIPInterfaceChangeWithError
+	funcCancelMibChangeNotify2 = dummyFuncCancelMibChangeNotify2
+	infMonitor := NewMonitor()
+
+	err := infMonitor.StartMonitor(notificationChannel)
+	assert.Error(t, err)
+}
 
 // Test for StartMonitor. This is a success test case in which initial notification is sent immediately
 func TestStartMonitorInitialNotificationImmediately(t *testing.T) {

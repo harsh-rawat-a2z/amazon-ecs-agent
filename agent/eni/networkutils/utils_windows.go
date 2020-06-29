@@ -39,8 +39,8 @@ type networkUtils struct {
 	// The retrieved macAddress is stored here
 	macAddress string
 	// This is the timeout after which we stop looking for MAC Address of ENI on host
-	timeout    time.Duration
-	ctx        context.Context
+	timeout time.Duration
+	ctx     context.Context
 	// A wrapper over Golang's net package
 	gonetutils gonetwrapper.GolangNetUtils
 }
@@ -103,11 +103,11 @@ func (utils *networkUtils) retrieveMAC() (string, error) {
 }
 
 // Returns all the network interfaces
-func (utils *networkUtils) GetAllNetworkInterfaces() ([]net.Interface, error){
+func (utils *networkUtils) GetAllNetworkInterfaces() ([]net.Interface, error) {
 	return utils.gonetutils.GetAllNetworkInterfaces()
 }
 
 // This method is used to inject GolangNetUtils instance. This will be handy while testing to inject mocks.
-func (utils *networkUtils) SetGoNetUtils(gutils gonetwrapper.GolangNetUtils){
+func (utils *networkUtils) SetGoNetUtils(gutils gonetwrapper.GolangNetUtils) {
 	utils.gonetutils = gutils
 }

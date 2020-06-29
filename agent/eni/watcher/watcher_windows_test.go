@@ -122,15 +122,15 @@ func TestReconcileOnce(t *testing.T) {
 	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
 	mockStateManager.EXPECT().ENIByMac(macAddress1).
 		Return(&apieni.ENIAttachment{
-		MACAddress:       macAddress1,
-		AttachStatusSent: false,
-		ExpiresAt:        time.Now().Add(time.Second * 5),
-	}, true)
+			MACAddress:       macAddress1,
+			AttachStatusSent: false,
+			ExpiresAt:        time.Now().Add(time.Second * 5),
+		}, true)
 	mockStateManager.EXPECT().ENIByMac(macAddress2).
 		Return(&apieni.ENIAttachment{
-		MACAddress:       macAddress2,
-		AttachStatusSent: true,
-	}, true)
+			MACAddress:       macAddress2,
+			AttachStatusSent: true,
+		}, true)
 	mockiphelper := mock_iphelperwrapper.NewMockInterfaceMonitor(mockCtrl)
 	mockiphelper.EXPECT().StartMonitor(gomock.Any()).Return(nil)
 	mockgonetutils := mock_gonetwrapper.NewMockGolangNetUtils(mockCtrl)
@@ -330,7 +330,7 @@ func TestEventHandlerENIStatusAlreadySent(t *testing.T) {
 		}, nil),
 		mockStateManager.EXPECT().ENIByMac(macAddress1).
 			Return(&apieni.ENIAttachment{
-				MACAddress: macAddress1,
+				MACAddress:       macAddress1,
 				AttachStatusSent: true,
 			}, true),
 	)
@@ -424,7 +424,7 @@ func TestEventHandlerExpiredENI(t *testing.T) {
 		mockStateManager.EXPECT().ENIByMac(macAddress1).
 			Return(&apieni.ENIAttachment{
 				MACAddress: macAddress1,
-				ExpiresAt:  time.Now().Add(-1*time.Second),
+				ExpiresAt:  time.Now().Add(-1 * time.Second),
 			}, true),
 		mockStateManager.EXPECT().RemoveENIAttachment(macAddress1),
 	)
@@ -464,9 +464,9 @@ func TestSendENIStateChange(t *testing.T) {
 	gomock.InOrder(
 		mockiphelper.EXPECT().StartMonitor(gomock.Any()).Return(nil),
 		mockStateManager.EXPECT().ENIByMac(macAddress1).Return(&apieni.ENIAttachment{
-			ExpiresAt: time.Now().Add(time.Second*5),
+			ExpiresAt: time.Now().Add(time.Second * 5),
 		}, true),
-		)
+	)
 
 	watcher, _ := NewWindowsWatcher(ctx, primaryMAC, mockStateManager, eventChannel, mockiphelper)
 
@@ -512,7 +512,7 @@ func TestSendENIStateChangeAlreadySent(t *testing.T) {
 		mockiphelper.EXPECT().StartMonitor(gomock.Any()).Return(nil),
 		mockStateManager.EXPECT().ENIByMac(macAddress1).Return(&apieni.ENIAttachment{
 			AttachStatusSent: true,
-			ExpiresAt:        time.Now().Add(time.Second*5),
+			ExpiresAt:        time.Now().Add(time.Second * 5),
 			MACAddress:       macAddress1,
 		}, true),
 	)
@@ -537,7 +537,7 @@ func TestSendENIStateChangeExpired(t *testing.T) {
 		mockStateManager.EXPECT().ENIByMac(macAddress1).Return(
 			&apieni.ENIAttachment{
 				AttachStatusSent: false,
-				ExpiresAt:        time.Now().Add(-1*time.Second),
+				ExpiresAt:        time.Now().Add(-1 * time.Second),
 				MACAddress:       macAddress1,
 			}, true),
 		mockStateManager.EXPECT().RemoveENIAttachment(macAddress1),
@@ -561,8 +561,8 @@ func TestSendENIStateChangeWithRetries(t *testing.T) {
 		mockiphelper.EXPECT().StartMonitor(gomock.Any()).Return(nil),
 		mockStateManager.EXPECT().ENIByMac(macAddress1).Return(nil, false),
 		mockStateManager.EXPECT().ENIByMac(macAddress1).Return(&apieni.ENIAttachment{
-			ExpiresAt:        time.Now().Add(5*time.Second),
-			MACAddress:       macAddress1,
+			ExpiresAt:  time.Now().Add(5 * time.Second),
+			MACAddress: macAddress1,
 		}, true),
 	)
 
@@ -593,7 +593,7 @@ func TestSendENIStateChangeWithRetriesDoesNotRetryExpiredENI(t *testing.T) {
 		mockStateManager.EXPECT().ENIByMac(macAddress1).Return(
 			&apieni.ENIAttachment{
 				AttachStatusSent: false,
-				ExpiresAt:        time.Now().Add(time.Second*-1),
+				ExpiresAt:        time.Now().Add(time.Second * -1),
 				MACAddress:       macAddress1,
 			}, true),
 		mockStateManager.EXPECT().RemoveENIAttachment(macAddress1),
@@ -620,7 +620,7 @@ func TestSendENIStateChangeWithAttachmentTypeInstanceENI(t *testing.T) {
 		mockiphelper.EXPECT().StartMonitor(gomock.Any()).Return(nil),
 		mockStateManager.EXPECT().ENIByMac(macAddress1).Return(&apieni.ENIAttachment{
 			AttachmentType: apieni.ENIAttachmentTypeInstanceENI,
-			ExpiresAt:      time.Now().Add(5*time.Second),
+			ExpiresAt:      time.Now().Add(5 * time.Second),
 		}, true),
 	)
 
@@ -649,7 +649,7 @@ func TestSendENIStateChangeWithAttachmentTypeTaskENI(t *testing.T) {
 		mockiphelper.EXPECT().StartMonitor(gomock.Any()).Return(nil),
 		mockStateManager.EXPECT().ENIByMac(macAddress1).Return(&apieni.ENIAttachment{
 			AttachmentType: apieni.ENIAttachmentTypeTaskENI,
-			ExpiresAt:      time.Now().Add(5*time.Second),
+			ExpiresAt:      time.Now().Add(5 * time.Second),
 		}, true),
 	)
 

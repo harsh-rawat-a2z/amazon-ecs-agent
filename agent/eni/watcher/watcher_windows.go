@@ -158,6 +158,6 @@ func (udevWatcher *UdevWatcher) getAllInterfaces() (state map[string]int, err er
 
 // This method is used for injecting NetworkUtils instance in udevWatcher
 // This will be handy while testing to inject mock objects
-func (udevWatcher *UdevWatcher) SetNetworkUtils(utils networkutils.WindowsNetworkUtils){
+func (udevWatcher *UdevWatcher) SetNetworkUtils(utils networkutils.WindowsNetworkUtils) {
 	udevWatcher.netutils = utils
 }

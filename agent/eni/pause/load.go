@@ -16,6 +16,7 @@ package pause
 import (
 	"context"
 	"fmt"
+
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	log "github.com/cihub/seelog"

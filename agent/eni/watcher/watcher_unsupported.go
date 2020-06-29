@@ -18,9 +18,10 @@ package watcher
 import (
 	"context"
 	"errors"
+	"time"
+
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
-	"time"
 )
 
 type UdevWatcher struct {

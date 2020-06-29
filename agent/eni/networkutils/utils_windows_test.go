@@ -18,11 +18,12 @@ package networkutils
 import (
 	"context"
 	"errors"
+	"net"
+	"testing"
+
 	mock_gonetwrapper "github.com/aws/amazon-ecs-agent/agent/eni/gonetwrapper/mocks"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"net"
-	"testing"
 )
 
 const (

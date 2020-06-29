@@ -18,21 +18,23 @@ package watcher
 import (
 	"context"
 	"errors"
+	"net"
+	"sync"
+	"time"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	mock_gonetwrapper "github.com/aws/amazon-ecs-agent/agent/eni/gonetwrapper/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eni/networkutils"
 	"github.com/stretchr/testify/require"
-	"net"
-	"sync"
-	"time"
+
+	"testing"
 
 	mock_iphelperwrapper "github.com/aws/amazon-ecs-agent/agent/eni/iphelperwrapper/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 const (

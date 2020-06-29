@@ -17,10 +17,11 @@ package watcher
 
 import (
 	"context"
-	"github.com/aws/amazon-ecs-agent/agent/eni/iphelperwrapper"
-	"github.com/aws/amazon-ecs-agent/agent/eni/networkutils"
 	"strings"
 	"time"
+
+	"github.com/aws/amazon-ecs-agent/agent/eni/iphelperwrapper"
+	"github.com/aws/amazon-ecs-agent/agent/eni/networkutils"
 
 	log "github.com/cihub/seelog"
 	"github.com/pkg/errors"

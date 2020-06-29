@@ -17,13 +17,14 @@ package networkutils
 
 import (
 	"context"
+	"net"
+	"time"
+
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/eni/gonetwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
-	"net"
-	"time"
 )
 
 // Interface for NetworkUtils

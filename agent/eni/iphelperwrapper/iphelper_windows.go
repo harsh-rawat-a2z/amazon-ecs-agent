@@ -17,13 +17,14 @@ package iphelperwrapper
 
 import (
 	"C"
-	log "github.com/cihub/seelog"
-	"github.com/pkg/errors"
-	"golang.org/x/sys/windows"
 	"math"
 	"syscall"
 	"time"
 	"unsafe"
+
+	log "github.com/cihub/seelog"
+	"github.com/pkg/errors"
+	"golang.org/x/sys/windows"
 )
 
 const (

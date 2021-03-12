@@ -17,12 +17,20 @@ package ecscni
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/cihub/seelog"
 	"github.com/containernetworking/cni/libcni"
 	"github.com/containernetworking/cni/pkg/types/current"
 	"github.com/pkg/errors"
+)
+
+var (
+	// vpcCNIPluginPath is the path of VPC CNI plugin log file
+	vpcCNIPluginPath = filepath.Join(utils.DefaultIfBlank(os.Getenv("ProgramData"), `C:\ProgramData`), "Amazon", "ECS", "log", "vpc-shared-eni.log")
 )
 
 // setupNS is the called by SetupNS to setup the task namespace by invoking ADD for given CNI configurations

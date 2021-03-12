@@ -29,6 +29,11 @@ import (
 	"github.com/pkg/errors"
 )
 
+var (
+	// vpcCNIPluginPath is the path of VPC CNI plugin log file
+	vpcCNIPluginPath = "/log/vpc-branch-eni.log"
+)
+
 // setupNS is the called by SetupNS to setup the task namespace by invoking ADD for given CNI configurations
 func (client *cniClient) setupNS(ctx context.Context, cfg *Config) (*current.Result, error) {
 	seelog.Debugf("[ECSCNI] Setting up the container namespace %s", cfg.ContainerID)

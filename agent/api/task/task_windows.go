@@ -259,6 +259,7 @@ func (task *Task) BuildCNIConfig(includeIPAMConfig bool, cniConfig *ecscni.Confi
 
 	var netconf *libcni.NetworkConfig
 	var err error
+	var taskENI *apieni.ENI
 
 	// Build a CNI network configuration for each ENI.
 	for _, eni := range task.ENIs {
@@ -282,9 +283,19 @@ func (task *Task) BuildCNIConfig(includeIPAMConfig bool, cniConfig *ecscni.Confi
 			IfName:           ecscni.TaskENIBridgeNetworkPrefix,
 			CNINetworkConfig: netconf,
 		})
+
+		taskENI = eni
 	}
 
-	// TODO: Build configuration for second invocation of plugin to setup ecs-bridge
+	// Config to invoke the CNI plugin to connect task to nat network
+	netconf, err = ecscni.NewBridgeNetworkConfigForTaskMetadataSetup(taskENI, cniConfig)
+	if err != nil {
+		return nil, err
+	}
+	cniConfig.NetworkConfigs = append(cniConfig.NetworkConfigs, &ecscni.NetworkConfig{
+		IfName:           ecscni.TaskENIBridgeNetworkPrefix,
+		CNINetworkConfig: netconf,
+	})
 
 	return cniConfig, nil
 }

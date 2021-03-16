@@ -74,7 +74,25 @@ func TestNewBridgeNetworkConfigForTaskNSSetup(t *testing.T) {
 	assert.EqualValues(t, ipv4CIDR, bridgeConfig.IPAddress)
 	assert.EqualValues(t, mac, bridgeConfig.ENIMACAddress)
 	assert.EqualValues(t, validVPCGatewayIPv4Addr, bridgeConfig.GatewayIPAddress)
-	assert.True(t, bridgeConfig.TaskENIConfig.PauseContainer)
+	assert.False(t, bridgeConfig.TaskENIConfig.NoInfra)
+	assert.True(t, bridgeConfig.TaskENIConfig.EnableTaskENI)
+	assert.False(t, bridgeConfig.TaskENIConfig.EnableTaskMetadata)
+}
+
+// TestNewBridgeNetworkConfigForTaskNSSetup tests the generated configuration when all parameters are valid
+func TestNewBridgeNetworkConfigForTaskMetadataSetup(t *testing.T) {
+	taskENI := getTaskENI()
+	cniConfig := getCNIConfig()
+	config, err := NewBridgeNetworkConfigForTaskMetadataSetup(taskENI, cniConfig)
+
+	bridgeConfig := &BridgeForTaskENIConfig{}
+	json.Unmarshal(config.Bytes, bridgeConfig)
+
+	assert.NoError(t, err)
+	assert.EqualValues(t, ECSVPCSharedENIPluginExecutable, config.Network.Type)
+	assert.False(t, bridgeConfig.TaskENIConfig.NoInfra)
+	assert.False(t, bridgeConfig.TaskENIConfig.EnableTaskENI)
+	assert.True(t, bridgeConfig.TaskENIConfig.EnableTaskMetadata)
 }
 
 // TestNewBridgeNetworkConfigForTaskNSSetupInvalidGateway tests the generated configuration when subnet gateway is incorrect

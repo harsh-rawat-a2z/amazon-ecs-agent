@@ -24,11 +24,15 @@ const (
 	ECSVPCSharedENIPluginExecutable = "vpc-shared-eni.exe"
 	// TaskENIBridgeNetworkPrefix is the prefix added to the Task ENI bridge network name by the CNI plugin
 	TaskENIBridgeNetworkPrefix = "task"
+	// DefaultECSBridgeNetworkName is the name of the network on Windows used for accessing Tak IAM role and Task Metadata
+	DefaultECSBridgeNetworkName = "nat"
 )
 
 // TaskENIConfig defines the Task Networking specific data required by the plugin
 type TaskENIConfig struct {
-	PauseContainer bool `json:"pauseContainer"`
+	NoInfra            bool `json:"noInfra"`
+	EnableTaskENI      bool `json:"enableTaskENI"`
+	EnableTaskMetadata bool `json:"enableTaskMetadata"`
 }
 
 // BridgeForTaskENIConfig contains all the information to invoke the vpc-shared-eni plugin
@@ -41,6 +45,8 @@ type BridgeForTaskENIConfig struct {
 	// DNS is used to pass DNS information to the plugin
 	DNS types.DNS `json:"dns"`
 
+	// VPCCIDRs are the CIDRs allocated to the VPC
+	VPCCIDRs []string `json:"vpcCIDRs"`
 	// ENIName is the name/id of the ENI
 	ENIName string `json:"eniName"`
 	// ENIMACAddress is the MAC address of the eni

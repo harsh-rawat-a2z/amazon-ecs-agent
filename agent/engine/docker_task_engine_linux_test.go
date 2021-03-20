@@ -69,6 +69,26 @@ func init() {
 	defaultConfig.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
 }
 
+// getTaskENI returns a mock task eni provisioned for a task on Linux
+func getTaskENI() *apieni.ENI {
+	return &apieni.ENI{
+		ID: "eni-id",
+		IPV4Addresses: []*apieni.ENIIPV4Address{
+			{
+				Primary: true,
+				Address: ipv4,
+			},
+		},
+		MacAddress: mac,
+		IPV6Addresses: []*apieni.ENIIPV6Address{
+			{
+				Address: ipv6,
+			},
+		},
+		SubnetGatewayIPV4Address: gatewayIPv4,
+	}
+}
+
 // TestResourceContainerProgression tests the container progression based on a
 // resource dependency
 func TestResourceContainerProgression(t *testing.T) {

@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api/eni"
+	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	mock_libcni "github.com/aws/amazon-ecs-agent/agent/ecscni/mocks_libcni"
 	"github.com/containernetworking/cni/libcni"
 	"github.com/containernetworking/cni/pkg/types/current"
@@ -36,9 +36,29 @@ import (
 const (
 	eniID                       = "eni-12345678"
 	eniIPV4Address              = "172.31.21.40"
+	eniIPV4SecondaryAddress     = "172.31.21.41"
 	eniMACAddress               = "02:7b:64:49:b1:40"
 	eniSubnetGatewayIPV4Address = "172.31.1.1/20"
 )
+
+func getENI() *apieni.ENI {
+	return &apieni.ENI{
+		ID:                           eniID,
+		MacAddress:                   eniMACAddress,
+		InterfaceAssociationProtocol: apieni.DefaultInterfaceAssociationProtocol,
+		SubnetGatewayIPV4Address:     eniSubnetGatewayIPV4Address,
+		IPV4Addresses: []*apieni.ENIIPV4Address{
+			{
+				Primary: true,
+				Address: eniIPV4Address,
+			},
+			{
+				Primary: false,
+				Address: eniIPV4SecondaryAddress,
+			},
+		},
+	}
+}
 
 // TestSetupNS is used to test if the namespace is setup properly as per the provided configuration
 func TestSetupNS(t *testing.T) {
@@ -54,32 +74,28 @@ func TestSetupNS(t *testing.T) {
 		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any(), gomock.Any()).Return(&current.Result{}, nil).Do(
 			func(ctx context.Context, net *libcni.NetworkConfig, rt *libcni.RuntimeConf) {
 				assert.Equal(t, ECSVPCSharedENIPluginExecutable, net.Network.Type, "first plugin should be vpc-shared-eni")
-			}),
+			}).Times(2),
 	)
 
-	config := &Config{
-		NetworkConfigs: []*NetworkConfig{},
-	}
-	config.NetworkConfigs = append(config.NetworkConfigs, eniNetworkConfig(config))
-
+	config := getNetworkConfig()
 	_, err := ecscniClient.SetupNS(context.TODO(), config, time.Second)
 	assert.NoError(t, err)
 }
 
-// eniNetworkConfig is used to generate a dummy configuration for setting up the task namespace
-func eniNetworkConfig(config *Config) *NetworkConfig {
-	eniNetworkConfig, _ := NewBridgeNetworkConfigForTaskNSSetup(
-		&eni.ENI{
-			ID: eniID,
-			IPV4Addresses: []*eni.ENIIPV4Address{
-				{Address: eniIPV4Address, Primary: true},
-			},
-			MacAddress:               eniMACAddress,
-			SubnetGatewayIPV4Address: eniSubnetGatewayIPV4Address,
-		},
-		config,
+// getNetworkConfig is used to generate a dummy configuration for setting up the task namespace
+func getNetworkConfig() *Config {
+	config := &Config{
+		NetworkConfigs: []*NetworkConfig{},
+	}
+
+	eniNetworkConfig, _ := NewBridgeNetworkConfigForTaskNSSetup(getENI(), config)
+	taskBridgeConfig, _ := NewBridgeNetworkConfigForTaskBridgeSetup(config)
+
+	config.NetworkConfigs = append(config.NetworkConfigs,
+		&NetworkConfig{CNINetworkConfig: eniNetworkConfig},
+		&NetworkConfig{CNINetworkConfig: taskBridgeConfig},
 	)
-	return &NetworkConfig{CNINetworkConfig: eniNetworkConfig}
+	return config
 }
 
 // TestSetupNSTimeout tests the behavior when CNI plugin invocation returns an error
@@ -98,11 +114,7 @@ func TestSetupNSTimeout(t *testing.T) {
 			}).MaxTimes(1),
 	)
 
-	config := &Config{
-		NetworkConfigs: []*NetworkConfig{},
-	}
-
-	config.NetworkConfigs = append(config.NetworkConfigs, eniNetworkConfig(config))
+	config := getNetworkConfig()
 	_, err := ecscniClient.SetupNS(context.TODO(), config, time.Millisecond)
 
 	assert.Error(t, err)
@@ -117,12 +129,9 @@ func TestCleanupNS(t *testing.T) {
 	libcniClient := mock_libcni.NewMockCNI(ctrl)
 	ecscniClient.(*cniClient).libcni = libcniClient
 
-	libcniClient.EXPECT().DelNetwork(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(1)
+	libcniClient.EXPECT().DelNetwork(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(2)
 
-	config := &Config{
-		NetworkConfigs: []*NetworkConfig{},
-	}
-	config.NetworkConfigs = append(config.NetworkConfigs, eniNetworkConfig(config))
+	config := getNetworkConfig()
 	err := ecscniClient.CleanupNS(context.TODO(), config, time.Second)
 
 	assert.NoError(t, err)
@@ -145,11 +154,7 @@ func TestCleanupNSTimeout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Millisecond)
 	defer cancel()
 
-	config := &Config{
-		NetworkConfigs: []*NetworkConfig{},
-	}
-
-	config.NetworkConfigs = append(config.NetworkConfigs, eniNetworkConfig(config))
+	config := getNetworkConfig()
 	err := ecscniClient.CleanupNS(ctx, config, time.Millisecond)
 
 	assert.Error(t, err)
@@ -164,33 +169,46 @@ func TestConstructNetworkConfig(t *testing.T) {
 		ContainerNetNS: "container:1234def",
 	}
 
-	taskENI := &eni.ENI{
-		ID: eniID,
-		IPV4Addresses: []*eni.ENIIPV4Address{
-			{Address: eniIPV4Address, Primary: true},
-		},
-		MacAddress:               eniMACAddress,
-		SubnetGatewayIPV4Address: eniSubnetGatewayIPV4Address,
-	}
+	taskENI := getENI()
 
 	taskENIBridgeNetworkConfig, err := NewBridgeNetworkConfigForTaskNSSetup(taskENI, config)
 	require.NoError(t, err, "failed to construct configuration for task ENI bridge")
 	assert.Equal(t, TaskENIBridgeNetworkPrefix, taskENIBridgeNetworkConfig.Network.Name)
 
-	taskBridgeConfig := &BridgeForTaskENIConfig{}
-	err = json.Unmarshal(taskENIBridgeNetworkConfig.Bytes, taskBridgeConfig)
+	taskENIBridgeConfig := &BridgeForTaskENIConfig{}
+	err = json.Unmarshal(taskENIBridgeNetworkConfig.Bytes, taskENIBridgeConfig)
 	require.NoError(t, err, "unmarshal bridge config from bytes failed")
 
-	assert.Equal(t, ECSVPCSharedENIPluginName, taskBridgeConfig.Type)
-	assert.Equal(t, "", taskBridgeConfig.ENIName)
+	assert.Equal(t, ECSVPCSharedENIPluginName, taskENIBridgeConfig.Type)
+	assert.Equal(t, "", taskENIBridgeConfig.ENIName)
 
 	subnet := strings.Split(eniSubnetGatewayIPV4Address, "/")
 	ipv4Addr := fmt.Sprintf("%s/%s", taskENI.GetPrimaryIPv4Address(), subnet[1])
+	ipv4SecondaryAddr := fmt.Sprintf("%s/%s", eniIPV4SecondaryAddress, subnet[1])
 
-	assert.EqualValues(t, ipv4Addr, taskBridgeConfig.ENIIPAddress)
-	assert.EqualValues(t, ipv4Addr, taskBridgeConfig.IPAddress)
-	assert.EqualValues(t, taskENI.MacAddress, taskBridgeConfig.ENIMACAddress)
-	assert.EqualValues(t, subnet[0], taskBridgeConfig.GatewayIPAddress)
+	assert.EqualValues(t, ipv4Addr, taskENIBridgeConfig.ENIIPAddress)
+	assert.EqualValues(t, ipv4SecondaryAddr, taskENIBridgeConfig.IPAddress)
+	assert.EqualValues(t, taskENI.MacAddress, taskENIBridgeConfig.ENIMACAddress)
+	assert.EqualValues(t, subnet[0], taskENIBridgeConfig.GatewayIPAddress)
+
+	assert.False(t, taskENIBridgeConfig.TaskENIConfig.EnableTaskBridge)
+	assert.True(t, taskENIBridgeConfig.TaskENIConfig.EnableTaskENI)
+	assert.False(t, taskENIBridgeConfig.TaskENIConfig.NoInfra)
+
+	taskBridgeNetworkConfig, err := NewBridgeNetworkConfigForTaskBridgeSetup(config)
+	require.NoError(t, err, "failed to construct configuration for task bridge")
+	assert.EqualValues(t, DefaultECSBridgeNetworkName, taskBridgeNetworkConfig.Network.Name)
+
+	taskBridgeConfig := &BridgeForTaskENIConfig{}
+	err = json.Unmarshal(taskBridgeNetworkConfig.Bytes, taskBridgeConfig)
+	require.NoError(t, err, "unmarshal bridge config from bytes failed")
+
+	assert.Equal(t, ECSVPCSharedENIPluginName, taskBridgeConfig.Type)
+	assert.Equal(t, TaskENIBridgeNetworkPrefix, taskBridgeConfig.ENIName)
+
+	assert.True(t, taskBridgeConfig.TaskENIConfig.EnableTaskBridge)
+	assert.False(t, taskBridgeConfig.TaskENIConfig.EnableTaskENI)
+	assert.False(t, taskBridgeConfig.TaskENIConfig.NoInfra)
 }
 
 // TestCNIPluginVersion tests if the string generated by version is correct

@@ -16,8 +16,8 @@
 package ecscni
 
 import (
+	"fmt"
 	"net"
-	"strings"
 
 	"github.com/containernetworking/cni/pkg/types"
 
@@ -28,19 +28,8 @@ import (
 
 // NewBridgeNetworkConfigForTaskNSSetup is used to create the bridge configuration for task namespace setup
 func NewBridgeNetworkConfigForTaskNSSetup(eni *eni.ENI, cfg *Config) (*libcni.NetworkConfig, error) {
-	// There is no prefix length for ENI's IP Address whereas vpc-shared-eni plugin expects a prefix length.
-	// SubnetGatewayIPV4Address has a prefix length while vpc-shared-eni plugin does not expect a prefix length.
-	subnet := strings.Split(eni.SubnetGatewayIPV4Address, "/")
-	if len(subnet) != 2 {
-		return nil, errors.Errorf(
-			"cannot create bridge network config due to incorrect format of subnet gateway ipv4 address %v", eni.SubnetGatewayIPV4Address)
-	}
 
-	// todo: Get the VPC CIDR from IMDS
-	VPCCIDRs := []string{"10.0.0.0/16"}
-
-	ipv4Addr := eni.GetPrimaryIPv4Address() + "/" + subnet[1]
-	eniGatewayIPAddress := subnet[0]
+	VPCCIDRs := []string{}
 
 	dns := types.DNS{
 		Nameservers: eni.DomainNameServers,
@@ -53,17 +42,28 @@ func NewBridgeNetworkConfigForTaskNSSetup(eni *eni.ENI, cfg *Config) (*libcni.Ne
 		dns.Nameservers = constructedDNS
 	}
 
+	eniSecondaryIPAddr := ""
+	for _, addr := range eni.IPV4Addresses {
+		if !addr.Primary {
+			eniSecondaryIPAddr = fmt.Sprintf("%s/%s", addr.Address, eni.GetIPv4SubnetPrefixLength())
+		}
+	}
+
+	if eniSecondaryIPAddr == "" {
+		return nil, errors.Errorf("secondary ip address not available for eni with mac: %s", eni.MacAddress)
+	}
+
 	eniConf := BridgeForTaskENIConfig{
 		Type:             ECSVPCSharedENIPluginName,
 		VPCCIDRs:         VPCCIDRs,
-		ENIIPAddress:     ipv4Addr,
+		ENIIPAddress:     eni.GetPrimaryIPv4AddressWithPrefixLength(),
 		ENIMACAddress:    eni.MacAddress,
-		GatewayIPAddress: eniGatewayIPAddress,
-		IPAddress:        ipv4Addr,
+		GatewayIPAddress: eni.GetSubnetGatewayIPv4Address(),
+		IPAddress:        eniSecondaryIPAddr,
 		TaskENIConfig: TaskENIConfig{
-			NoInfra:            false,
-			EnableTaskENI:      true,
-			EnableTaskMetadata: false,
+			NoInfra:          false,
+			EnableTaskENI:    true,
+			EnableTaskBridge: false,
 		},
 		DNS: dns,
 	}
@@ -80,17 +80,19 @@ func NewBridgeNetworkConfigForTaskNSSetup(eni *eni.ENI, cfg *Config) (*libcni.Ne
 	return networkConfig, nil
 }
 
-// NewBridgeNetworkConfigForTaskNSSetup is used to create the bridge configuration for task namespace setup
-func NewBridgeNetworkConfigForTaskMetadataSetup(eni *eni.ENI, cfg *Config) (*libcni.NetworkConfig, error) {
+// NewBridgeNetworkConfigForTaskBridgeSetup is used to create the configuration for task bridge setup
+func NewBridgeNetworkConfigForTaskBridgeSetup(cfg *Config) (*libcni.NetworkConfig, error) {
+
+	VPCCIDRs := []string{}
 
 	eniConf := BridgeForTaskENIConfig{
 		Type:     ECSVPCSharedENIPluginName,
-		VPCCIDRs: make([]string, 0),
+		VPCCIDRs: VPCCIDRs,
 		ENIName:  TaskENIBridgeNetworkPrefix,
 		TaskENIConfig: TaskENIConfig{
-			NoInfra:            false,
-			EnableTaskENI:      false,
-			EnableTaskMetadata: true,
+			NoInfra:          false,
+			EnableTaskENI:    false,
+			EnableTaskBridge: true,
 		},
 	}
 

@@ -26,6 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
@@ -49,6 +50,30 @@ import (
 const (
 	containerNetNS = "container:abcd"
 )
+
+// getTaskENI returns a mock task eni provisioned for a task on Windows
+func getTaskENI() *apieni.ENI {
+	return &apieni.ENI{
+		ID: "eni-id",
+		IPV4Addresses: []*apieni.ENIIPV4Address{
+			{
+				Primary: true,
+				Address: ipv4,
+			},
+			{
+				Primary: false,
+				Address: ipv4,
+			},
+		},
+		MacAddress: mac,
+		IPV6Addresses: []*apieni.ENIIPV6Address{
+			{
+				Address: ipv6,
+			},
+		},
+		SubnetGatewayIPV4Address: gatewayIPv4,
+	}
+}
 
 func TestDeleteTask(t *testing.T) {
 	ctrl := gomock.NewController(t)

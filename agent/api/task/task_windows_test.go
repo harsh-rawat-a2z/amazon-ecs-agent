@@ -739,6 +739,10 @@ func TestBuildCNIConfig(t *testing.T) {
 				Primary: true,
 				Address: ipv4,
 			},
+			{
+				Primary: false,
+				Address: ipv4,
+			},
 		},
 	})
 

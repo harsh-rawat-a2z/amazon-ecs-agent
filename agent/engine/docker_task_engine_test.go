@@ -110,22 +110,7 @@ var (
 	defaultConfig config.Config
 	nsResult      = mockSetupNSResult()
 
-	mockENI = &apieni.ENI{
-		ID: "eni-id",
-		IPV4Addresses: []*apieni.ENIIPV4Address{
-			{
-				Primary: true,
-				Address: ipv4,
-			},
-		},
-		MacAddress: mac,
-		IPV6Addresses: []*apieni.ENIIPV6Address{
-			{
-				Address: ipv6,
-			},
-		},
-		SubnetGatewayIPV4Address: gatewayIPv4,
-	}
+	mockENI = getTaskENI()
 
 	// createdContainerName is used to save the name of the created
 	// container from the validateContainerRunWorkflow method. This

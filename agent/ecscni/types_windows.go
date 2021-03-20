@@ -30,9 +30,9 @@ const (
 
 // TaskENIConfig defines the Task Networking specific data required by the plugin
 type TaskENIConfig struct {
-	NoInfra            bool `json:"noInfra"`
-	EnableTaskENI      bool `json:"enableTaskENI"`
-	EnableTaskMetadata bool `json:"enableTaskMetadata"`
+	NoInfra          bool `json:"noInfra"`
+	EnableTaskENI    bool `json:"enableTaskENI"`
+	EnableTaskBridge bool `json:"enableTaskBridge"`
 }
 
 // BridgeForTaskENIConfig contains all the information to invoke the vpc-shared-eni plugin

@@ -17,6 +17,7 @@ package app
 
 import (
 	"context"
+	"net"
 	"sync"
 	"time"
 
@@ -59,6 +60,12 @@ func (agent *ecsAgent) initializeTaskENIDependencies(state dockerstate.TaskEngin
 	// Set VPC and Subnet IDs for the instance
 	if err, ok := agent.setVPCSubnet(); err != nil {
 		return err, ok
+	}
+
+	// Using the mac address set for the instance, query the Primary as well as all CIDR blocks of the VPC
+	// If we cannot get the CIDR blocks from IMDS then we are looking at a terminal error
+	if err := agent.populateVPCCIDRBlocks(); err != nil {
+		return err, true
 	}
 
 	// Validate that the CNI plugins exist in the expected path
@@ -289,10 +296,12 @@ func (t *termHandlerIndicator) wait() uint32 {
 func (agent *ecsAgent) initializeResourceFields(credentialsManager credentials.Manager) {
 	agent.resourceFields = &taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
-			ASMClientCreator:   asmfactory.NewClientCreator(),
-			SSMClientCreator:   ssmfactory.NewSSMClientCreator(),
-			FSxClientCreator:   fsxfactory.NewFSxClientCreator(),
-			CredentialsManager: credentialsManager,
+			ASMClientCreator:     asmfactory.NewClientCreator(),
+			SSMClientCreator:     ssmfactory.NewSSMClientCreator(),
+			FSxClientCreator:     fsxfactory.NewFSxClientCreator(),
+			CredentialsManager:   credentialsManager,
+			PrimaryIPV4VPCCIDR:   nil,
+			AllIPV4VPCCIDRBlocks: nil,
 		},
 		Ctx:             agent.ctx,
 		DockerClient:    agent.dockerClient,
@@ -349,5 +358,39 @@ func (agent *ecsAgent) verifyCNIPluginsCapabilities() error {
 				plugin, ecscni.CapabilityAWSVPCNetworkingMode)
 		}
 	}
+	return nil
+}
+
+// getPrimaryIPV4VPCCIDR gets the VPC's Primary IPV4 CIDR from the metadata service
+func (agent *ecsAgent) getPrimaryIPV4VPCCIDR(mac string) *net.IPNet {
+	ipAddr, err := agent.ec2MetadataClient.PrimaryIPV4VPCCIDR(mac)
+	if err == nil {
+		seelog.Infof("Primary VPC CIDR is: %s", ipAddr)
+		return ipAddr
+	}
+	return nil
+}
+
+// getAllIPV4VPCCIDRBlocks gets all the VPC's IPV4 CIDRs from the metadata service
+func (agent *ecsAgent) getAllIPV4VPCCIDRBlocks(mac string) []*net.IPNet {
+	allBlocks, err := agent.ec2MetadataClient.AllIPV4VPCCIDRBlocks(mac)
+	if err == nil {
+		seelog.Infof("All IPV4 VPC CIDR Blocks are: %v", allBlocks)
+		return allBlocks
+	}
+	return nil
+}
+
+// populateVPCCIDRBlocks populates the primary and all ipv4 cidr blocks of the vpc in the resource fields
+func (agent *ecsAgent) populateVPCCIDRBlocks() error {
+	primaryVPCCIDR := agent.getPrimaryIPV4VPCCIDR(agent.mac)
+	allIPV4Blocks := agent.getAllIPV4VPCCIDRBlocks(agent.mac)
+
+	if primaryVPCCIDR == nil || allIPV4Blocks == nil {
+		return errors.New("unable to populate vpc cidr blocks")
+	}
+
+	agent.resourceFields.ResourceFieldsCommon.PrimaryIPV4VPCCIDR = primaryVPCCIDR
+	agent.resourceFields.ResourceFieldsCommon.AllIPV4VPCCIDRBlocks = allIPV4Blocks
 	return nil
 }

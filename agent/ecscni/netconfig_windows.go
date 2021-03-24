@@ -29,13 +29,13 @@ import (
 // NewBridgeNetworkConfigForTaskNSSetup is used to create the bridge configuration for task namespace setup
 func NewBridgeNetworkConfigForTaskNSSetup(eni *eni.ENI, cfg *Config) (*libcni.NetworkConfig, error) {
 
-	VPCCIDRs := []string{}
+	VPCCIDRs := convertIPNetToString(cfg.AllIPV4VPCCIDRBlocks)
 
 	dns := types.DNS{
 		Nameservers: eni.DomainNameServers,
 	}
 	if len(eni.DomainNameServers) == 0 {
-		constructedDNS, err := constructDNSFromVPCGateway("10.0.0.0")
+		constructedDNS, err := constructDNSFromVPCCIDR(cfg.PrimaryIPV4VPCCIDR.IP)
 		if err != nil {
 			return nil, errors.Wrapf(err, "cannot create bridge network config")
 		}
@@ -83,7 +83,7 @@ func NewBridgeNetworkConfigForTaskNSSetup(eni *eni.ENI, cfg *Config) (*libcni.Ne
 // NewBridgeNetworkConfigForTaskBridgeSetup is used to create the configuration for task bridge setup
 func NewBridgeNetworkConfigForTaskBridgeSetup(cfg *Config) (*libcni.NetworkConfig, error) {
 
-	VPCCIDRs := []string{}
+	VPCCIDRs := convertIPNetToString(cfg.AllIPV4VPCCIDRBlocks)
 
 	eniConf := BridgeForTaskENIConfig{
 		Type:     ECSVPCSharedENIPluginName,
@@ -107,18 +107,26 @@ func NewBridgeNetworkConfigForTaskBridgeSetup(cfg *Config) (*libcni.NetworkConfi
 	return networkConfig, nil
 }
 
-// constructDNSFromVPCGateway is used to construct DNS server from subnet gateway address
-func constructDNSFromVPCGateway(subnetGateway string) ([]string, error) {
+// constructDNSFromVPCCIDR is used to construct DNS server from the primary ipv4 cidr
+func constructDNSFromVPCCIDR(primaryCIDR net.IP) ([]string, error) {
 	// The DNS server maps to a reserved IP address at the base of the VPC IPv4 network rage plus 2
 	// https://docs.aws.amazon.com/vpc/latest/userguide/VPC_DHCP_Options.html#AmazonDNS
-	// Therefore, we construct the same by replacing the last token of the subnet gateway to 2
-	subnetIPv4 := net.ParseIP(subnetGateway)
-	if subnetIPv4 == nil {
-		return nil, errors.New("failed to construct dns from gateway address")
-	}
+	// Therefore, we construct the same by replacing the last token of the primary cidr to 2
+
 	mask := net.CIDRMask(24, 32)
-	maskedIPv4 := subnetIPv4.Mask(mask).To4()
+	maskedIPv4 := primaryCIDR.Mask(mask).To4()
 	maskedIPv4[3] = 2
 
 	return []string{maskedIPv4.String()}, nil
+}
+
+// convertIPNetToString converts an array of net.IPNet into an array of string representation
+func convertIPNetToString(cidr []*net.IPNet) []string {
+	parsed := make([]string, len(cidr))
+
+	for index, ipAddr := range cidr {
+		parsed[index] = ipAddr.String()
+	}
+
+	return parsed
 }

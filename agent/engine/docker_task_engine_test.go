@@ -990,6 +990,7 @@ func TestProvisionContainerResourcesSetPausePIDInVolumeResources(t *testing.T) {
 
 	mockCNIClient := mock_ecscni.NewMockCNIClient(ctrl)
 	taskEngine.(*DockerTaskEngine).cniClient = mockCNIClient
+	taskEngine.(*DockerTaskEngine).resourceFields = getTaskResourceFields()
 	testTask := testdata.LoadTask("sleep5")
 	pauseContainer := &apicontainer.Container{
 		Name: "pausecontainer",
@@ -1066,6 +1067,7 @@ func TestStopPauseContainerCleanupCalled(t *testing.T) {
 
 	mockCNIClient := mock_ecscni.NewMockCNIClient(ctrl)
 	taskEngine.(*DockerTaskEngine).cniClient = mockCNIClient
+	taskEngine.(*DockerTaskEngine).resourceFields = getTaskResourceFields()
 	testTask := testdata.LoadTask("sleep5")
 	pauseContainer := &apicontainer.Container{
 		Name:                "pausecontainer",
@@ -1131,6 +1133,7 @@ func TestStopPauseContainerCleanupDelay(t *testing.T) {
 
 	mockCNIClient := mock_ecscni.NewMockCNIClient(ctrl)
 	taskEngine.(*DockerTaskEngine).cniClient = mockCNIClient
+	taskEngine.(*DockerTaskEngine).resourceFields = getTaskResourceFields()
 	testTask := testdata.LoadTask("sleep5")
 	pauseContainer := &apicontainer.Container{
 		Name:                "pausecontainer",
@@ -1183,6 +1186,7 @@ func TestCheckTearDownPauseContainer(t *testing.T) {
 
 	mockCNIClient := mock_ecscni.NewMockCNIClient(ctrl)
 	taskEngine.(*DockerTaskEngine).cniClient = mockCNIClient
+	taskEngine.(*DockerTaskEngine).resourceFields = getTaskResourceFields()
 	testTask := testdata.LoadTask("sleep5")
 	pauseContainer := &apicontainer.Container{
 		Name:                "pausecontainer",

@@ -14,6 +14,8 @@
 package ecscni
 
 import (
+	"net"
+
 	"github.com/containernetworking/cni/libcni"
 	cnitypes "github.com/containernetworking/cni/pkg/types"
 )
@@ -60,6 +62,10 @@ type Config struct {
 	AdditionalLocalRoutes []cnitypes.IPNet
 	// NetworkConfigs is the list of CNI network configurations to be invoked
 	NetworkConfigs []*NetworkConfig
+	// PrimaryIPV4VPCCIDR is the primary IPV4 VPC CIDR block
+	PrimaryIPV4VPCCIDR *net.IPNet
+	// AllIPV4VPCCIDRBlocks is an array of all the IPV4 CIDR blocks in the VPC
+	AllIPV4VPCCIDRBlocks []*net.IPNet
 }
 
 // NetworkConfig wraps CNI library's NetworkConfig object. It tracks the interface device

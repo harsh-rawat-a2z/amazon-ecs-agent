@@ -1512,6 +1512,10 @@ func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainer(
 		return nil, errors.New("engine: failed to build cni configuration from the task due to invalid container network namespace")
 	}
 
+	if engine.resourceFields != nil && engine.resourceFields.ResourceFieldsCommon != nil {
+		cniConfig.PrimaryIPV4VPCCIDR = engine.resourceFields.ResourceFieldsCommon.PrimaryIPV4VPCCIDR
+		cniConfig.AllIPV4VPCCIDRBlocks = engine.resourceFields.ResourceFieldsCommon.AllIPV4VPCCIDRBlocks
+	}
 	cniConfig, err := task.BuildCNIConfig(includeIPAMConfig, cniConfig)
 	if err != nil {
 		return nil, errors.Wrapf(err, "engine: failed to build cni configuration from task")

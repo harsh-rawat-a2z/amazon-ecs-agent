@@ -19,6 +19,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"strings"
 	"testing"
 	"time"
@@ -39,6 +40,7 @@ const (
 	eniIPV4SecondaryAddress     = "172.31.21.41"
 	eniMACAddress               = "02:7b:64:49:b1:40"
 	eniSubnetGatewayIPV4Address = "172.31.1.1/20"
+	vpcIPv4CIDR                 = "10.0.0.0/16"
 )
 
 func getENI() *apieni.ENI {
@@ -58,6 +60,33 @@ func getENI() *apieni.ENI {
 			},
 		},
 	}
+}
+
+// getBaseConfig returns the base configuration which is required to build CNI configurations
+func getBaseConfig() *Config {
+	_, ipAddr, _ := net.ParseCIDR(vpcIPv4CIDR)
+	return &Config{
+		ContainerID:          "containerid12",
+		ContainerPID:         "pid",
+		ContainerNetNS:       "container:1234def",
+		NetworkConfigs:       []*NetworkConfig{},
+		PrimaryIPV4VPCCIDR:   ipAddr,
+		AllIPV4VPCCIDRBlocks: []*net.IPNet{ipAddr},
+	}
+}
+
+// getNetworkConfig is used to generate a dummy configuration for setting up the task namespace
+func getNetworkConfig() *Config {
+	config := getBaseConfig()
+
+	eniNetworkConfig, _ := NewBridgeNetworkConfigForTaskNSSetup(getENI(), config)
+	taskBridgeConfig, _ := NewBridgeNetworkConfigForTaskBridgeSetup(config)
+
+	config.NetworkConfigs = append(config.NetworkConfigs,
+		&NetworkConfig{CNINetworkConfig: eniNetworkConfig},
+		&NetworkConfig{CNINetworkConfig: taskBridgeConfig},
+	)
+	return config
 }
 
 // TestSetupNS is used to test if the namespace is setup properly as per the provided configuration
@@ -80,22 +109,6 @@ func TestSetupNS(t *testing.T) {
 	config := getNetworkConfig()
 	_, err := ecscniClient.SetupNS(context.TODO(), config, time.Second)
 	assert.NoError(t, err)
-}
-
-// getNetworkConfig is used to generate a dummy configuration for setting up the task namespace
-func getNetworkConfig() *Config {
-	config := &Config{
-		NetworkConfigs: []*NetworkConfig{},
-	}
-
-	eniNetworkConfig, _ := NewBridgeNetworkConfigForTaskNSSetup(getENI(), config)
-	taskBridgeConfig, _ := NewBridgeNetworkConfigForTaskBridgeSetup(config)
-
-	config.NetworkConfigs = append(config.NetworkConfigs,
-		&NetworkConfig{CNINetworkConfig: eniNetworkConfig},
-		&NetworkConfig{CNINetworkConfig: taskBridgeConfig},
-	)
-	return config
 }
 
 // TestSetupNSTimeout tests the behavior when CNI plugin invocation returns an error
@@ -163,11 +176,7 @@ func TestCleanupNSTimeout(t *testing.T) {
 // TestConstructNetworkConfig tests if we create an appropriate config from NewBridgeNetworkConfigForTaskNSSetup
 func TestConstructNetworkConfig(t *testing.T) {
 
-	config := &Config{
-		ContainerID:    "containerid12",
-		ContainerPID:   "pid",
-		ContainerNetNS: "container:1234def",
-	}
+	config := getBaseConfig()
 
 	taskENI := getENI()
 

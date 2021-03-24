@@ -17,6 +17,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 	"sync"
@@ -49,6 +50,7 @@ import (
 
 const (
 	containerNetNS = "container:abcd"
+	vpcIPv4CIDR    = "10.0.0.0/16"
 )
 
 // getTaskENI returns a mock task eni provisioned for a task on Windows
@@ -270,6 +272,7 @@ func TestBuildCNIConfigFromTaskContainer(t *testing.T) {
 	ctrl, _, _, taskEngine, _, _, _ := mocks(t, ctx, &config)
 	defer ctrl.Finish()
 
+	taskEngine.(*DockerTaskEngine).resourceFields = getTaskResourceFields()
 	testTask := testdata.LoadTask("sleep5")
 	testTask.AddTaskENI(mockENI)
 	testTask.SetAppMesh(&appmesh.AppMesh{
@@ -315,6 +318,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 
 	mockCNIClient := mock_ecscni.NewMockCNIClient(ctrl)
 	taskEngine.(*DockerTaskEngine).cniClient = mockCNIClient
+	taskEngine.(*DockerTaskEngine).resourceFields = getTaskResourceFields()
 	// sleep5 contains a single 'sleep' container, with DesiredStatus == RUNNING
 	sleepTask := testdata.LoadTask("sleep5")
 	sleepContainer := sleepTask.Containers[0]
@@ -464,6 +468,7 @@ func TestPauseContainerHappyPath(t *testing.T) {
 
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
 	taskEngine.(*DockerTaskEngine).cniClient = cniClient
+	taskEngine.(*DockerTaskEngine).resourceFields = getTaskResourceFields()
 	taskEngine.(*DockerTaskEngine).taskSteadyStatePollInterval = taskSteadyStatePollInterval
 	eventStream := make(chan dockerapi.DockerContainerChangeEvent)
 	sleepTask := testdata.LoadTask("sleep5")
@@ -592,4 +597,15 @@ func TestPauseContainerHappyPath(t *testing.T) {
 		time.Sleep(5 * time.Millisecond)
 	}
 	wg.Wait()
+}
+
+// getTaskResourceFields returns a dummy configuration of resource fields
+func getTaskResourceFields() *taskresource.ResourceFields {
+	_, ipAddr, _ := net.ParseCIDR(vpcIPv4CIDR)
+	return &taskresource.ResourceFields{
+		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+			PrimaryIPV4VPCCIDR:   ipAddr,
+			AllIPV4VPCCIDRBlocks: []*net.IPNet{ipAddr},
+		},
+	}
 }

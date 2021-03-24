@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -33,14 +34,17 @@ import (
 )
 
 const (
-	testRoleName = "test-role"
-	mac          = "01:23:45:67:89:ab"
-	macs         = "01:23:45:67:89:ab/\n01:23:45:67:89:ac"
-	vpcID        = "vpc-1234"
-	subnetID     = "subnet-1234"
-	iidRegion    = "us-east-1"
-	privateIP    = "127.0.0.1"
-	publicIP     = "127.0.0.1"
+	testRoleName            = "test-role"
+	mac                     = "01:23:45:67:89:ab"
+	macs                    = "01:23:45:67:89:ab/\n01:23:45:67:89:ac"
+	vpcID                   = "vpc-1234"
+	subnetID                = "subnet-1234"
+	iidRegion               = "us-east-1"
+	privateIP               = "127.0.0.1"
+	publicIP                = "127.0.0.1"
+	vpcPrimaryCIDR          = "10.0.0.0/16"
+	incorrectVPCPrimaryCIDR = "10.0.0.0\n/16"
+	allVPCCIDRs             = "10.0.0.0/16\n10.2.0.0/16"
 )
 
 func makeTestRoleCredentials() ec2.RoleCredentials {
@@ -251,4 +255,56 @@ func TestSpotInstanceActionError(t *testing.T) {
 	resp, err := testClient.SpotInstanceAction()
 	assert.Error(t, err)
 	assert.Equal(t, "", resp)
+}
+
+func TestPrimaryIPV4VPCCIDRSuccess(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockGetter := mock_ec2.NewMockHttpClient(ctrl)
+	testClient := ec2.NewEC2MetadataClient(mockGetter)
+
+	mockGetter.EXPECT().GetMetadata(fmt.Sprintf(ec2.PrimaryIPV4VPCCIDR, mac)).
+		Return(vpcPrimaryCIDR, nil)
+	resp, err := testClient.PrimaryIPV4VPCCIDR(mac)
+
+	assert.NoError(t, err)
+	assert.Equal(t, vpcPrimaryCIDR, resp.String())
+}
+
+func TestPrimaryIPV4VPCCIDRError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockGetter := mock_ec2.NewMockHttpClient(ctrl)
+	testClient := ec2.NewEC2MetadataClient(mockGetter)
+
+	mockGetter.EXPECT().GetMetadata(fmt.Sprintf(ec2.PrimaryIPV4VPCCIDR, mac)).
+		Return(incorrectVPCPrimaryCIDR, nil)
+	resp, err := testClient.PrimaryIPV4VPCCIDR(mac)
+
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+}
+
+func TestAllIPV4VPCCIDRBlocksSuccess(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockGetter := mock_ec2.NewMockHttpClient(ctrl)
+	testClient := ec2.NewEC2MetadataClient(mockGetter)
+
+	mockGetter.EXPECT().GetMetadata(fmt.Sprintf(ec2.AllIPV4VPCCIDRBlocks, mac)).
+		Return(allVPCCIDRs, nil)
+	resp, err := testClient.AllIPV4VPCCIDRBlocks(mac)
+
+	// setup the expected results
+	tokens := strings.Split(strings.TrimSpace(allVPCCIDRs), "\n")
+
+	assert.NoError(t, err)
+	assert.Equal(t, len(tokens), len(resp))
+
+	for index, cidr := range resp {
+		assert.Equal(t, tokens[index], cidr.String())
+	}
 }

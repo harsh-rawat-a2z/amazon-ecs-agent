@@ -17,6 +17,7 @@ package ecscni
 
 import (
 	"encoding/json"
+	"net"
 	"testing"
 
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
@@ -24,9 +25,9 @@ import (
 )
 
 const (
+	vpcPrimaryIPv4CIDR      = "10.0.0.0/16"
 	validVPCGatewayCIDR     = "10.0.0.1/24"
 	validVPCGatewayIPv4Addr = "10.0.0.1"
-	invalidVPCGatewayAddr   = "10.0.0.300"
 	validDNSServer          = "10.0.0.2"
 	ipv4                    = "10.0.0.120"
 	ipv4CIDR                = "10.0.0.120/24"
@@ -56,8 +57,15 @@ func getTaskENI() *apieni.ENI {
 }
 
 func getCNIConfig() *Config {
+	vpcCIDR := &net.IPNet{
+		IP:   net.ParseIP("10.0.0.0"),
+		Mask: net.IPv4Mask(255, 255, 0, 0),
+	}
+
 	return &Config{
 		MinSupportedCNIVersion: cniMinSupportedVersion,
+		PrimaryIPV4VPCCIDR:     vpcCIDR,
+		AllIPV4VPCCIDRBlocks:   []*net.IPNet{vpcCIDR},
 	}
 }
 
@@ -116,18 +124,11 @@ func TestNewBridgeNetworkConfigForTaskBridgeSetup(t *testing.T) {
 	assert.True(t, bridgeConfig.TaskENIConfig.EnableTaskBridge)
 }
 
-// TestConstructDNSFromVPCGatewaySuccess tests if the dns is constructed properly from the given vpc gateway ipv4 address
-func TestConstructDNSFromVPCGatewaySuccess(t *testing.T) {
-	result, err := constructDNSFromVPCGateway(validVPCGatewayIPv4Addr)
+// TestConstructDNSFromVPCGatewaySuccess tests if the dns is constructed properly from the given primary ipv4 VPC CIDR
+func TestConstructDNSFromVPCCIDRSuccess(t *testing.T) {
+	_, vpcPrimaryCIDR, _ := net.ParseCIDR(vpcPrimaryIPv4CIDR)
+	result, err := constructDNSFromVPCCIDR(vpcPrimaryCIDR.IP)
 
 	assert.NoError(t, err)
 	assert.EqualValues(t, []string{validDNSServer}, result)
-}
-
-// TestConstructDNSFromVPCGatewayError tests if an error is thrown if the vpc gateway ipv4 is incorrect
-func TestConstructDNSFromVPCGatewayError(t *testing.T) {
-	result, err := constructDNSFromVPCGateway(invalidVPCGatewayAddr)
-
-	assert.Error(t, err)
-	assert.Nil(t, result)
 }

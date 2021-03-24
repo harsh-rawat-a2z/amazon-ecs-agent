@@ -153,11 +153,13 @@ func (agent *ecsAgent) initializeResourceFields(credentialsManager credentials.M
 	agent.resourceFields = &taskresource.ResourceFields{
 		Control: cgroup.New(),
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
-			IOUtil:             ioutilwrapper.NewIOUtil(),
-			ASMClientCreator:   asmfactory.NewClientCreator(),
-			SSMClientCreator:   ssmfactory.NewSSMClientCreator(),
-			CredentialsManager: credentialsManager,
-			EC2InstanceID:      agent.getEC2InstanceID(),
+			IOUtil:               ioutilwrapper.NewIOUtil(),
+			ASMClientCreator:     asmfactory.NewClientCreator(),
+			SSMClientCreator:     ssmfactory.NewSSMClientCreator(),
+			CredentialsManager:   credentialsManager,
+			EC2InstanceID:        agent.getEC2InstanceID(),
+			PrimaryIPV4VPCCIDR:   nil,
+			AllIPV4VPCCIDRBlocks: nil,
 		},
 		Ctx:              agent.ctx,
 		DockerClient:     agent.dockerClient,

@@ -753,9 +753,15 @@ func (mtask *managedTask) releaseIPInIPAM() {
 		field.TaskARN: mtask.Arn,
 	})
 
-	cfg, err := mtask.BuildCNIConfig(true, &ecscni.Config{
+	config := &ecscni.Config{
 		MinSupportedCNIVersion: config.DefaultMinSupportedCNIVersion,
-	})
+	}
+	if mtask.engine.resourceFields != nil && mtask.engine.resourceFields.ResourceFieldsCommon != nil {
+		config.PrimaryIPV4VPCCIDR = mtask.engine.resourceFields.ResourceFieldsCommon.PrimaryIPV4VPCCIDR
+		config.AllIPV4VPCCIDRBlocks = mtask.engine.resourceFields.ResourceFieldsCommon.AllIPV4VPCCIDRBlocks
+	}
+
+	cfg, err := mtask.BuildCNIConfig(true, config)
 	if err != nil {
 		logger.Error("Failed to release ip; unable to build cni configuration", logger.Fields{
 			field.TaskARN: mtask.Arn,

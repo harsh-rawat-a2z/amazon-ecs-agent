@@ -566,6 +566,8 @@ func TestBuildCNIConfigFromTaskContainer(t *testing.T) {
 	ctrl, _, _, taskEngine, _, _, _ := mocks(t, ctx, &config)
 	defer ctrl.Finish()
 
+	taskEngine.(*DockerTaskEngine).resourceFields = getTaskResourceFields()
+
 	testTask := testdata.LoadTask("sleep5")
 	testTask.AddTaskENI(mockENI)
 	testTask.SetAppMesh(&appmesh.AppMesh{
@@ -748,6 +750,7 @@ func TestPauseContainerHappyPath(t *testing.T) {
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
 	taskEngine.(*DockerTaskEngine).cniClient = cniClient
 	taskEngine.(*DockerTaskEngine).taskSteadyStatePollInterval = taskSteadyStatePollInterval
+	taskEngine.(*DockerTaskEngine).resourceFields = getTaskResourceFields()
 	eventStream := make(chan dockerapi.DockerContainerChangeEvent)
 	sleepTask := testdata.LoadTask("sleep5")
 	sleepContainer := sleepTask.Containers[0]
@@ -864,4 +867,14 @@ func TestPauseContainerHappyPath(t *testing.T) {
 		time.Sleep(5 * time.Millisecond)
 	}
 	wg.Wait()
+}
+
+// getTaskResourceFields returns a dummy configuration of resource fields
+func getTaskResourceFields() *taskresource.ResourceFields {
+	return &taskresource.ResourceFields{
+		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+			PrimaryIPV4VPCCIDR:   nil,
+			AllIPV4VPCCIDRBlocks: nil,
+		},
+	}
 }

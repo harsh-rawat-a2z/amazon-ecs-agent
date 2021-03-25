@@ -22,52 +22,13 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/cihub/seelog"
 	"github.com/containernetworking/cni/libcni"
-	"github.com/containernetworking/cni/pkg/types/current"
-	"github.com/pkg/errors"
 )
 
 var (
 	// vpcCNIPluginPath is the path of VPC CNI plugin log file
 	vpcCNIPluginPath = filepath.Join(utils.DefaultIfBlank(os.Getenv("ProgramData"), `C:\ProgramData`), "Amazon", "ECS", "log", "vpc-shared-eni.log")
 )
-
-// setupNS is the called by SetupNS to setup the task namespace by invoking ADD for given CNI configurations
-func (client *cniClient) setupNS(ctx context.Context, cfg *Config) (*current.Result, error) {
-	seelog.Debugf("[ECSCNI] Setting up the container namespace %s", cfg.ContainerID)
-
-	runtimeConfig := libcni.RuntimeConf{
-		ContainerID: cfg.ContainerID,
-		NetNS:       cfg.ContainerNetNS,
-		// This field is not used in the windows plugin
-		// However, we cannot keep it blank as it is expected by plugin due to its generic nature
-		// Therefore, we will pass dummy value here
-		IfName: TaskENIBridgeNetworkPrefix,
-	}
-
-	// Execute all CNI network configurations serially, in the given order.
-	for _, networkConfig := range cfg.NetworkConfigs {
-		cniNetworkConfig := networkConfig.CNINetworkConfig
-		seelog.Debugf("[ECSCNI] Adding network %s type %s in the container namespace %s",
-			cniNetworkConfig.Network.Name,
-			cniNetworkConfig.Network.Type,
-			cfg.ContainerID)
-		_, err := client.libcni.AddNetwork(ctx, cniNetworkConfig, &runtimeConfig)
-		if err != nil {
-			return nil, errors.Wrap(err, "add network failed")
-		}
-
-		seelog.Debugf("[ECSCNI] Completed adding network %s type %s in the container namespace %s",
-			cniNetworkConfig.Network.Name,
-			cniNetworkConfig.Network.Type,
-			cfg.ContainerID)
-	}
-
-	seelog.Debugf("[ECSCNI] Completed setting up the container namespace: %s", cfg.ContainerID)
-
-	return nil, nil
-}
 
 // ReleaseIPResource marks the ip available in the ipam db
 // This method is not required in Windows. HNS takes care of IP management.
@@ -87,4 +48,9 @@ type cniPluginVersion struct {
 // str generates a string version of the CNI plugin version
 func (version *cniPluginVersion) str() string {
 	return version.GitShortHash + "-" + version.Version
+}
+
+// isBridgePluginExecution returns if the cni plugin execution was for creating task bridge
+func isBridgePluginExecution(cniNetworkConfig *libcni.NetworkConfig) bool {
+	return cniNetworkConfig.Network.Type == ECSVPCSharedENIPluginExecutable && cniNetworkConfig.Network.Name == DefaultECSBridgeNetworkName
 }

@@ -83,8 +83,14 @@ func getNetworkConfig() *Config {
 	taskBridgeConfig, _ := NewBridgeNetworkConfigForTaskBridgeSetup(config)
 
 	config.NetworkConfigs = append(config.NetworkConfigs,
-		&NetworkConfig{CNINetworkConfig: eniNetworkConfig},
-		&NetworkConfig{CNINetworkConfig: taskBridgeConfig},
+		&NetworkConfig{
+			IfName:           TaskENIBridgeNetworkPrefix,
+			CNINetworkConfig: eniNetworkConfig,
+		},
+		&NetworkConfig{
+			IfName:           TaskENIBridgeNetworkPrefix,
+			CNINetworkConfig: taskBridgeConfig,
+		},
 	)
 	return config
 }

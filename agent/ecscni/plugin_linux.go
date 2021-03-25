@@ -17,74 +17,18 @@ package ecscni
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/cihub/seelog"
 	"github.com/containernetworking/cni/libcni"
-	cnitypes "github.com/containernetworking/cni/pkg/types"
-	"github.com/containernetworking/cni/pkg/types/current"
-	"github.com/pkg/errors"
 )
 
 var (
 	// vpcCNIPluginPath is the path of VPC CNI plugin log file
 	vpcCNIPluginPath = "/log/vpc-branch-eni.log"
 )
-
-// setupNS is the called by SetupNS to setup the task namespace by invoking ADD for given CNI configurations
-func (client *cniClient) setupNS(ctx context.Context, cfg *Config) (*current.Result, error) {
-	seelog.Debugf("[ECSCNI] Setting up the container namespace %s", cfg.ContainerID)
-
-	var bridgeResult cnitypes.Result
-	runtimeConfig := libcni.RuntimeConf{
-		ContainerID: cfg.ContainerID,
-		NetNS:       fmt.Sprintf(NetnsFormat, cfg.ContainerPID),
-	}
-
-	// Execute all CNI network configurations serially, in the given order.
-	for _, networkConfig := range cfg.NetworkConfigs {
-		cniNetworkConfig := networkConfig.CNINetworkConfig
-		seelog.Debugf("[ECSCNI] Adding network %s type %s in the container namespace %s",
-			cniNetworkConfig.Network.Name,
-			cniNetworkConfig.Network.Type,
-			cfg.ContainerID)
-		runtimeConfig.IfName = networkConfig.IfName
-		result, err := client.libcni.AddNetwork(ctx, cniNetworkConfig, &runtimeConfig)
-		if err != nil {
-			return nil, errors.Wrap(err, "add network failed")
-		}
-		// Save the result object from the bridge plugin execution. We need this later
-		// for inferring what IPv4 address was used to bring up the veth pair for task.
-		if cniNetworkConfig.Network.Type == ECSBridgePluginName {
-			bridgeResult = result
-		}
-
-		seelog.Debugf("[ECSCNI] Completed adding network %s type %s in the container namespace %s",
-			cniNetworkConfig.Network.Name,
-			cniNetworkConfig.Network.Type,
-			cfg.ContainerID)
-	}
-
-	seelog.Debugf("[ECSCNI] Completed setting up the container namespace: %s", bridgeResult.String())
-
-	if _, err := bridgeResult.GetAsVersion(currentCNISpec); err != nil {
-		seelog.Warnf("[ECSCNI] Unable to convert result to spec version %s; error: %v; result is of version: %s",
-			currentCNISpec, err, bridgeResult.Version())
-		return nil, err
-	}
-	var curResult *current.Result
-	curResult, ok := bridgeResult.(*current.Result)
-	if !ok {
-		return nil, errors.Errorf(
-			"cni setup: unable to convert result to expected version '%s'",
-			bridgeResult.String())
-	}
-
-	return curResult, nil
-}
 
 // ReleaseIPResource marks the ip available in the ipam db
 func (client *cniClient) ReleaseIPResource(ctx context.Context, cfg *Config, timeout time.Duration) error {
@@ -93,7 +37,7 @@ func (client *cniClient) ReleaseIPResource(ctx context.Context, cfg *Config, tim
 
 	runtimeConfig := libcni.RuntimeConf{
 		ContainerID: cfg.ContainerID,
-		NetNS:       fmt.Sprintf(NetnsFormat, cfg.ContainerPID),
+		NetNS:       cfg.ContainerNetNS,
 	}
 
 	seelog.Debugf("[ECSCNI] Releasing the ip resource from ipam db, id: [%s], ip: [%v]", cfg.ID, cfg.IPAMV4Address)
@@ -128,4 +72,9 @@ func (version *cniPluginVersion) str() string {
 		ver = "@"
 	}
 	return ver + version.Hash + "-" + version.Version
+}
+
+// isBridgePluginExecution returns if the cni plugin execution was for creating task bridge
+func isBridgePluginExecution(cniNetworkConfig *libcni.NetworkConfig) bool {
+	return cniNetworkConfig.Network.Type == ECSBridgePluginName
 }

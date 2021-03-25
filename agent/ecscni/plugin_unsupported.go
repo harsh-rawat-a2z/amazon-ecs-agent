@@ -20,7 +20,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/containernetworking/cni/pkg/types/current"
+	"github.com/containernetworking/cni/libcni"
 )
 
 var (
@@ -29,12 +29,6 @@ var (
 )
 
 type cniPluginVersion struct{}
-
-// setupNS is the called by SetupNS to setup the task namespace by invoking ADD for given CNI configurations
-// On unsupported platforms, we will return an error
-func (client *cniClient) setupNS(ctx context.Context, cfg *Config) (*current.Result, error) {
-	return nil, errors.New("unsupported platform")
-}
 
 // ReleaseIPResource marks the ip available in the ipam db
 // On unsupported platforms, we will return an error
@@ -46,4 +40,9 @@ func (client *cniClient) ReleaseIPResource(ctx context.Context, cfg *Config, tim
 // On unsupported platforms, we will return an empty string
 func (version *cniPluginVersion) str() string {
 	return ""
+}
+
+// isBridgePluginExecution returns if the cni plugin execution was for creating task bridge
+func isBridgePluginExecution(cniNetworkConfig *libcni.NetworkConfig) bool {
+	return false
 }

@@ -1429,6 +1429,17 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *apitask.Task, 
 		task.SetLocalIPAddress(taskIP)
 		engine.saveTaskData(task)
 	}
+
+	// execute commands inside pause container namespace to setup task iam roles and task metadata
+	err = engine.invokeCommandsForTaskBridgeSetup(engine.ctx, task, cniConfig, result)
+	if err != nil {
+		return dockerapi.DockerContainerMetadata{
+			DockerID: cniConfig.ContainerID,
+			Error: ContainerNetworkingError{errors.Wrap(err,
+				"container resource provisioning: failed to setup task bridge")},
+		}
+	}
+
 	return dockerapi.DockerContainerMetadata{
 		DockerID: cniConfig.ContainerID,
 	}

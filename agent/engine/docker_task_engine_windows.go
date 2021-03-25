@@ -16,9 +16,17 @@
 package engine
 
 import (
+	"context"
+	"fmt"
+
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/cihub/seelog"
+	"github.com/containernetworking/cni/pkg/types/current"
+	"github.com/docker/docker/api/types"
 	"github.com/pkg/errors"
 )
 
@@ -41,5 +49,37 @@ func (engine *DockerTaskEngine) invokePluginsForContainer(task *apitask.Task, co
 		return errors.Wrap(err, "failed to connect HNS endpoint to container")
 	}
 
+	return nil
+}
+
+func (engine *DockerTaskEngine) invokeCommandsForTaskBridgeSetup(ctx context.Context, task *apitask.Task,
+	config *ecscni.Config, result *current.Result) error {
+
+	seelog.Info("Task [%s]: Executing commands inside pause namespace for setting up task bridge", task.Arn)
+	execCfg := types.ExecConfig{
+		User:   "ContainerAdministrator",
+		Detach: true,
+		Cmd:    []string{fmt.Sprintf(ecscni.CredentialsEndpointRouteAdditionCmd, result.IPs[0].Gateway.String())},
+	}
+
+	execRes, err := engine.client.CreateContainerExec(ctx, config.ContainerID, execCfg, dockerclient.ContainerExecCreateTimeout)
+	if err != nil {
+		seelog.Errorf("Failed to execute commands in pause namespace [create]: %v", err)
+		return errors.Wrapf(err, "failed to execute commands in pause namespace")
+	}
+
+	err = engine.client.StartContainerExec(ctx, execRes.ID, dockerclient.ContainerExecStartTimeout)
+	if err != nil {
+		seelog.Errorf("Failed to execute commands in pause namespace [pre-start]: %v", err)
+		return errors.Wrapf(err, "failed to execute commands in pause namespace")
+	}
+
+	inspect, err := engine.client.InspectContainerExec(ctx, execRes.ID, dockerclient.ContainerExecInspectTimeout)
+	if err != nil {
+		seelog.Errorf("Failed to execute commands in pause namespace [inspect]: %v", err)
+		return errors.Wrapf(err, "failed to execute commands in pause namespace")
+	}
+
+	seelog.Infof("Harsh : exit %v \t running: %v", inspect.ExitCode, inspect.Running)
 	return nil
 }

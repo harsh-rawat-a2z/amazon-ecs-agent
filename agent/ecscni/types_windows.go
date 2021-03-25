@@ -26,6 +26,8 @@ const (
 	TaskENIBridgeNetworkPrefix = "task"
 	// DefaultECSBridgeNetworkName is the name of the network on Windows used for accessing Tak IAM role and Task Metadata
 	DefaultECSBridgeNetworkName = "nat"
+	// Route addition command for allowing task namespace to access credentials endpoint
+	CredentialsEndpointRouteAdditionCmd = "route add 169.254.170 mask 255.255.255.255 %s"
 )
 
 // TaskENIConfig defines the Task Networking specific data required by the plugin

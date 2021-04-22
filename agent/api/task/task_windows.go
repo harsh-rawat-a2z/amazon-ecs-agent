@@ -268,6 +268,8 @@ func (task *Task) BuildCNIConfig(includeIPAMConfig bool, cniConfig *ecscni.Confi
 		case "", apieni.DefaultInterfaceAssociationProtocol:
 			cniConfig.ID = eni.MacAddress
 			netconf, err = ecscni.NewBridgeNetworkConfigForTaskNSSetup(eni, cniConfig)
+			cniConfig.TaskPrimaryGateway = eni.GetSubnetGatewayIPv4Address()
+			cniConfig.TaskPrimaryIP = eni.GetPrimaryIPv4Address()
 		default:
 			err = errors.Errorf("task config: unknown interface association type: %s",
 				eni.InterfaceAssociationProtocol)

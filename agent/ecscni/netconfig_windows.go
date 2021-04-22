@@ -16,10 +16,8 @@
 package ecscni
 
 import (
-	"fmt"
-	"net"
-
 	"github.com/containernetworking/cni/pkg/types"
+	"net"
 
 	"github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/containernetworking/cni/libcni"
@@ -42,24 +40,13 @@ func NewBridgeNetworkConfigForTaskNSSetup(eni *eni.ENI, cfg *Config) (*libcni.Ne
 		dns.Nameservers = constructedDNS
 	}
 
-	eniSecondaryIPAddr := ""
-	for _, addr := range eni.IPV4Addresses {
-		if !addr.Primary {
-			eniSecondaryIPAddr = fmt.Sprintf("%s/%s", addr.Address, eni.GetIPv4SubnetPrefixLength())
-		}
-	}
-
-	if eniSecondaryIPAddr == "" {
-		return nil, errors.Errorf("secondary ip address not available for eni with mac: %s", eni.MacAddress)
-	}
-
 	eniConf := BridgeForTaskENIConfig{
 		Type:             ECSVPCSharedENIPluginName,
 		VPCCIDRs:         VPCCIDRs,
 		ENIIPAddress:     eni.GetPrimaryIPv4AddressWithPrefixLength(),
 		ENIMACAddress:    eni.MacAddress,
 		GatewayIPAddress: eni.GetSubnetGatewayIPv4Address(),
-		IPAddress:        eniSecondaryIPAddr,
+		IPAddress:        eni.GetPrimaryIPv4AddressWithPrefixLength(),
 		TaskENIConfig: TaskENIConfig{
 			NoInfra:          false,
 			EnableTaskENI:    true,

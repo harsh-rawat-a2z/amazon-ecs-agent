@@ -17,7 +17,9 @@ package engine
 import (
 	"context"
 	"fmt"
+	"github.com/containernetworking/cni/pkg/types/current"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -168,6 +170,7 @@ type DockerTaskEngine struct {
 	monitorExecAgentsTicker   *time.Ticker
 	execCmdMgr                execcmd.Manager
 	monitorExecAgentsInterval time.Duration
+	taskResult *current.Result
 }
 
 // NewDockerTaskEngine returns a created, but uninitialized, DockerTaskEngine.
@@ -1409,11 +1412,22 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *apitask.Task, 
 		}
 	}
 
-	// Invoke the libcni to config the network namespace for the container
-	result, err := engine.cniClient.SetupNS(engine.ctx, cniConfig, cniSetupTimeout)
+	setupNSBackoff := retry.NewExponentialBackoff(minEngineConnectRetryDelay, maxEngineConnectRetryDelay,
+		engineConnectRetryJitterMultiplier, engineConnectRetryDelayMultiplier)
+	err = retry.RetryWithBackoff(setupNSBackoff, func() error {
+		// Invoke the libcni to config the network namespace for the container
+		result, err := engine.cniClient.SetupNS(engine.ctx, cniConfig, cniSetupTimeout)
+		if err != nil {
+			seelog.Errorf("Task engine [%s]: unable to configure pause container namespace: %v",
+				task.Arn, err)
+			return apierrors.NewRetriableError(apierrors.NewRetriable(true), err)
+		}
+
+		engine.taskResult = result
+		return err
+	})
+
 	if err != nil {
-		seelog.Errorf("Task engine [%s]: unable to configure pause container namespace: %v",
-			task.Arn, err)
 		return dockerapi.DockerContainerMetadata{
 			DockerID: cniConfig.ContainerID,
 			Error: ContainerNetworkingError{errors.Wrap(err,
@@ -1421,6 +1435,7 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *apitask.Task, 
 		}
 	}
 
+	result := engine.taskResult
 	// This is the IP of the task assigned on the bridge for IAM Task roles
 	if result != nil {
 		taskIP := result.IPs[0].Address.IP.String()
@@ -1430,6 +1445,8 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *apitask.Task, 
 		engine.saveTaskData(task)
 	}
 
+	seelog.Infof("Executing commands inside pause namespace for task bridge setup container id %s gateway %s --harsh",
+		cniConfig.ContainerID, result.IPs[0].Gateway.String())
 	// execute commands inside pause container namespace to setup task iam roles and task metadata
 	err = engine.invokeCommandsForTaskBridgeSetup(engine.ctx, task, cniConfig, result)
 	if err != nil {
@@ -1439,7 +1456,7 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *apitask.Task, 
 				"container resource provisioning: failed to setup task bridge")},
 		}
 	}
-
+	seelog.Info("Completed execution --harsh")
 	return dockerapi.DockerContainerMetadata{
 		DockerID: cniConfig.ContainerID,
 	}
@@ -1488,7 +1505,16 @@ func (engine *DockerTaskEngine) cleanupPauseContainerNetwork(task *apitask.Task,
 			"engine: failed cleanup task network namespace, task: %s", task.String())
 	}
 
-	return engine.cniClient.CleanupNS(engine.ctx, cniConfig, cniCleanupTimeout)
+	err = engine.cniClient.CleanupNS(engine.ctx, cniConfig, cniCleanupTimeout)
+	if err != nil {
+		return err
+	}
+
+	cmd := fmt.Sprintf("netsh advfirewall firewall delete rule name=\"Disable IMDS for %s\" dir=out\n",
+		cniConfig.TaskPrimaryIP)
+	exec.Command("cmd", "/C", cmd).Run()
+
+	return nil
 }
 
 // buildCNIConfigFromTaskContainer builds a CNI config for the task and container.

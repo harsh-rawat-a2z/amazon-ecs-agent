@@ -66,6 +66,9 @@ type Config struct {
 	PrimaryIPV4VPCCIDR *net.IPNet
 	// AllIPV4VPCCIDRBlocks is an array of all the IPV4 CIDR blocks in the VPC
 	AllIPV4VPCCIDRBlocks []*net.IPNet
+	//Primary ENI's IP Address for the task
+	TaskPrimaryGateway	string
+	TaskPrimaryIP		string
 }
 
 // NetworkConfig wraps CNI library's NetworkConfig object. It tracks the interface device

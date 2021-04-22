@@ -18,16 +18,16 @@ package engine
 import (
 	"context"
 	"fmt"
-
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
-
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/cihub/seelog"
 	"github.com/containernetworking/cni/pkg/types/current"
 	"github.com/docker/docker/api/types"
 	"github.com/pkg/errors"
+	"os/exec"
+	"strings"
 )
 
 // invokePluginForContainer is used to invoke the CNI plugin for the given container
@@ -55,31 +55,66 @@ func (engine *DockerTaskEngine) invokePluginsForContainer(task *apitask.Task, co
 func (engine *DockerTaskEngine) invokeCommandsForTaskBridgeSetup(ctx context.Context, task *apitask.Task,
 	config *ecscni.Config, result *current.Result) error {
 
-	seelog.Info("Task [%s]: Executing commands inside pause namespace for setting up task bridge", task.Arn)
+	gateway := result.IPs[0].Gateway.String()
+	command1 := strings.Split(fmt.Sprintf(ecscni.DefaultBridgeRouteDeleteCmd, ecscni.RouteExecutable, gateway), " ")
+	err := engine.invokeCommand(ctx, task, config, command1)
+	if err != nil {
+		return err
+	}
+
+	if !config.BlockInstanceMetadata{
+		imdsRouteAddCmd := strings.Split(fmt.Sprintf(ecscni.IMDSRouteAdditionCmd, ecscni.RouteExecutable, config.TaskPrimaryGateway), " ")
+		err := engine.invokeCommand(ctx, task, config, imdsRouteAddCmd)
+		if err != nil {
+			return err
+		}
+	} else {
+		cmd := fmt.Sprintf("netsh advfirewall firewall add rule name=\"Disable IMDS for %s\" dir=out localip=%s remoteip=169.254.169.254 action=block\n",
+			config.TaskPrimaryIP, config.TaskPrimaryIP)
+		c := exec.Command("cmd", "/C", cmd)
+		c.Run()
+	}
+
+	//command2 := strings.Split(fmt.Sprintf(ecscni.DefaultCredEndpointAdd, ecscni.RouteExecutable, gateway), " ")
+	//err = engine.invokeCommand(ctx, task, config, command2)
+	//if err != nil {
+	//	return err
+	//}
+
+	return nil
+}
+
+func (engine *DockerTaskEngine) invokeCommand(ctx context.Context, task *apitask.Task,
+	config *ecscni.Config, command []string) error {
+
+	seelog.Infof("Task [%s]: Executing commands inside pause namespace %v", task.Arn, command)
 	execCfg := types.ExecConfig{
-		User:   "ContainerAdministrator",
-		Detach: true,
-		Cmd:    []string{fmt.Sprintf(ecscni.CredentialsEndpointRouteAdditionCmd, result.IPs[0].Gateway.String())},
+		Detach: false,
+		Cmd:    command,
+		User: "ContainerAdministrator",
 	}
 
 	execRes, err := engine.client.CreateContainerExec(ctx, config.ContainerID, execCfg, dockerclient.ContainerExecCreateTimeout)
 	if err != nil {
-		seelog.Errorf("Failed to execute commands in pause namespace [create]: %v", err)
-		return errors.Wrapf(err, "failed to execute commands in pause namespace")
+		seelog.Errorf("Failed to execute command in pause namespace [create]: %v", err)
+		return errors.Wrapf(err, "failed to execute command in pause namespace")
 	}
 
 	err = engine.client.StartContainerExec(ctx, execRes.ID, dockerclient.ContainerExecStartTimeout)
 	if err != nil {
-		seelog.Errorf("Failed to execute commands in pause namespace [pre-start]: %v", err)
-		return errors.Wrapf(err, "failed to execute commands in pause namespace")
+		seelog.Errorf("Failed to execute command in pause namespace [pre-start]: %v", err)
+		return errors.Wrapf(err, "failed to execute command in pause namespace")
 	}
 
 	inspect, err := engine.client.InspectContainerExec(ctx, execRes.ID, dockerclient.ContainerExecInspectTimeout)
 	if err != nil {
-		seelog.Errorf("Failed to execute commands in pause namespace [inspect]: %v", err)
-		return errors.Wrapf(err, "failed to execute commands in pause namespace")
+		seelog.Errorf("Failed to execute command in pause namespace [inspect]: %v", err)
+		return errors.Wrapf(err, "failed to execute command in pause namespace")
 	}
 
-	seelog.Infof("Harsh : exit %v \t running: %v", inspect.ExitCode, inspect.Running)
+	if !inspect.Running && inspect.ExitCode != 0 {
+		return errors.Errorf("failed to execute command in pause namespace: %v", command)
+	}
+	seelog.Infof("Information %v --Harsh ", inspect)
 	return nil
 }

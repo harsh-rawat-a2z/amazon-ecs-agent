@@ -25,10 +25,15 @@ const (
 	// TaskENIBridgeNetworkPrefix is the prefix added to the Task ENI bridge network name by the CNI plugin
 	TaskENIBridgeNetworkPrefix = "task"
 	// DefaultECSBridgeNetworkName is the name of the network on Windows used for accessing Tak IAM role and Task Metadata
-	DefaultECSBridgeNetworkName = "nat"
-	// Route addition command for allowing task namespace to access credentials endpoint
-	CredentialsEndpointRouteAdditionCmd = "route add 169.254.170 mask 255.255.255.255 %s"
-)
+	DefaultECSBridgeNetworkName = "ecs-bridge"
+	// RouteExecutable is the executable on Windows Containers to manipulate routing table
+	RouteExecutable = "route"
+	// DefaultBridgeRouteDeleteCmd is the command to delete default route in task namespace for ecs-bridge
+	DefaultBridgeRouteDeleteCmd = "%s delete 0.0.0.0 mask 0.0.0.0 %s"
+	// IMDSRouteAdditionCmd is route addition command for allowing task namespace to access IMDS
+	IMDSRouteAdditionCmd = "%s add 169.254.169.254 mask 255.255.255.255 %s"
+	DefaultCredEndpointAdd = "%s add 169.254.170.2 mask 255.255.255.255 %s"
+	)
 
 // TaskENIConfig defines the Task Networking specific data required by the plugin
 type TaskENIConfig struct {

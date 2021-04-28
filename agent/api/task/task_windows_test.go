@@ -18,6 +18,7 @@ package task
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"runtime"
 	"testing"
 
@@ -742,8 +743,10 @@ func TestBuildCNIConfig(t *testing.T) {
 		},
 	})
 
+	_, primaryCIDR, _ := net.ParseCIDR("10.0.0.0/16")
 	cniConfig, err := testTask.BuildCNIConfig(true, &ecscni.Config{
 		MinSupportedCNIVersion: "latest",
+		PrimaryIPv4VPCCIDR:     primaryCIDR,
 	})
 	assert.NoError(t, err)
 	// We expect 1 NetworkConfig objects in the cni Config wrapper object:

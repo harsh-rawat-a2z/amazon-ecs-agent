@@ -32,10 +32,7 @@ func NewBridgeNetworkConfigForTaskNSSetup(eni *eni.ENI, cfg *Config) (*libcni.Ne
 		Nameservers: eni.DomainNameServers,
 	}
 
-	if len(eni.DomainNameServers) == 0 {
-		if gateway == "" {
-			return nil, errors.New("cannot create bridge network config due to invalid gateway")
-		}
+	if len(eni.DomainNameServers) == 0 && cfg.PrimaryIPv4VPCCIDR != nil {
 		constructedDNS, err := constructDNSFromVPCCIDR(cfg.PrimaryIPv4VPCCIDR)
 		if err != nil {
 			return nil, errors.Wrapf(err, "cannot create bridge network config")

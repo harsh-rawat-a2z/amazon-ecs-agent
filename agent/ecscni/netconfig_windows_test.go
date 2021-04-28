@@ -53,8 +53,10 @@ func getTaskENI() *apieni.ENI {
 }
 
 func getCNIConfig() *Config {
+	_, cidr, _ := net.ParseCIDR(vpcCIDR)
 	return &Config{
 		MinSupportedCNIVersion: cniMinSupportedVersion,
+		PrimaryIPv4VPCCIDR:     cidr,
 	}
 }
 

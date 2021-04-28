@@ -821,7 +821,7 @@ func (agent *ecsAgent) saveMetadata(key, val string) {
 }
 
 // setVPCSubnet sets the vpc and subnet ids for the agent by querying the
-// instance metadata service. It also sets the Primary CIDR block of the VPC.
+// instance metadata service
 func (agent *ecsAgent) setVPCSubnet() (error, bool) {
 	mac, err := agent.ec2MetadataClient.PrimaryENIMAC()
 	if err != nil {
@@ -841,15 +841,9 @@ func (agent *ecsAgent) setVPCSubnet() (error, bool) {
 		return fmt.Errorf("unable to get subnet id from instance metadata: %v", err), false
 	}
 
-	primaryIPv4VPCCIDR, err := agent.ec2MetadataClient.PrimaryIPV4VPCCIDR(mac)
-	if err != nil {
-		return fmt.Errorf("unable to get primary ipv4 cidr of the vpc: %v", err), false
-	}
-
 	agent.vpc = vpcID
 	agent.subnet = subnetID
 	agent.mac = mac
-	agent.cfg.PrimaryIPv4VPCCIDR = primaryIPv4VPCCIDR
 
 	return nil, false
 }

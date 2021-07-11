@@ -90,9 +90,7 @@ func TestConfigureTaskNamespaceRouting(t *testing.T) {
 			cmd3 := fmt.Sprintf(windowsRouteAddCmdFormat, credentialsEndpointRoute, bridgeEpName)
 
 			var cmd4 string
-			if cniConfig.BlockInstanceMetadata {
-				cmd4 = fmt.Sprintf(windowsRouteAddCmdFormat, imdsEndpointIPAddress, loopbackInterfaceName)
-			} else {
+			if !cniConfig.BlockInstanceMetadata {
 				cmd4 = fmt.Sprintf(windowsRouteAddCmdFormat, imdsEndpointIPAddress, taskEPName)
 			}
 			cmd5 := fmt.Sprintf(windowsRouteAddCmdFormat, "10.0.0.0/24", bridgeEpName)
